@@ -1,5 +1,5 @@
 summary:
-    Basic smoke test
+    Check basic functionality
 discover:
     how: fmf
 provision:
