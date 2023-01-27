@@ -44,7 +44,7 @@ install -pm 644 did.1.gz %{buildroot}%{_mandir}/man1
 
 %check
 export LANG=en_US.utf-8
-%{__python3} -m pytest -vv tests/test*.py -k 'not smoke'
+%{__python3} -m pytest -vv tests/unit/test*.py -k 'not smoke'
 
 %files
 %{_mandir}/man1/*
