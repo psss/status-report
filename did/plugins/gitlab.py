@@ -60,12 +60,17 @@ class GitLab(object):
         self.project_mrs = {}
         self.project_issues = {}
 
-    def _get_gitlab_api_raw(self, url):
-        return requests.get(url, headers=self.headers, verify=self.ssl_verify)
+    def _get_gitlab_api_raw(self, url, params=None):
+        log.debug("Query: {0}, params: {1}".format(url, params))
+        return requests.get(url,
+            headers=self.headers,
+            params=params,
+            verify=self.ssl_verify
+        )
 
-    def _get_gitlab_api(self, endpoint):
+    def _get_gitlab_api(self, endpoint, params=None):
         url = '{0}/api/v{1}/{2}'.format(self.url, GITLAB_API, endpoint)
-        return self._get_gitlab_api_raw(url)
+        return self._get_gitlab_api_raw(url, params=params)
 
     def _get_gitlab_api_json(self, endpoint):
         log.debug("Query: {0}".format(endpoint))
@@ -74,11 +79,16 @@ class GitLab(object):
         return result
 
     def _get_gitlab_api_list(
-            self, endpoint, since=None, get_all_results=False):
+            self, endpoint,
+            params=None,
+            since=None,
+            get_all_results=False
+    ):
         results = []
-        result = self._get_gitlab_api(endpoint)
+        result = self._get_gitlab_api(endpoint, params=params)
         result.raise_for_status()
         results.extend(result.json())
+        log.data(pretty(results))
         while ('next' in result.links and 'url' in result.links['next'] and
                 get_all_results):
             result = self._get_gitlab_api_raw(result.links['next']['url'])
@@ -116,6 +126,17 @@ class GitLab(object):
         mrs = self.get_project_mrs(project_id)
         mr = next(filter(lambda x: x['id'] == mr_id, mrs), None)
         return mr
+    
+    def get_user_mr(self, username, state, since, until):
+        since = since.date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        until = until.date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        endpoint = 'merge_requests'
+        return self._get_gitlab_api_list(endpoint, params={
+            'author_username': username,
+            'state': state,
+            'updated_after': since,
+            'updated_before': until
+        })
 
     def get_project_mrs(self, project_id):
         if project_id not in self.project_mrs:
@@ -174,7 +195,10 @@ class Issue(object):
         self.gitlabapi = parent.gitlab
         self.project = self.gitlabapi.get_project(data['project_id'])
         self.id = self.iid()
-        self.title = data['target_title']
+        self.title = self._get_title()
+
+    def _get_title(self):
+        return self.data['target_title']
 
     def iid(self):
         return self.gitlabapi.get_project_issue(
@@ -227,6 +251,13 @@ class Note(Issue):
         else:
             return "unknown"
 
+class MergedRequest(MergeRequest):
+
+    def iid(self):
+        return self.data['iid']
+    
+    def _get_title(self):
+        return self.data['title']
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #  Stats
@@ -332,6 +363,21 @@ class MergeRequestsApproved(Stats):
             for mr in results]
 
 
+class MergeRequestsMerged(Stats):
+    """ Merge requests merged """
+
+    def fetch(self):
+        log.info("Searching for Merged requests authored by {0}".format(
+            self.user))
+        results = self.parent.gitlab.get_user_mr(
+            self.user.login, 'merged', 
+            self.options.since, self.options.until
+        )
+
+        self.stats = [
+            MergedRequest(mr, self.parent.gitlab)
+            for mr in results]
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #  Stats Group
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -388,4 +434,7 @@ class GitLabStats(StatsGroup):
             MergeRequestsClosed(
                 option=option + "-merge-requests-closed", parent=self,
                 name="Merge requests closed on {0}".format(option)),
+            MergeRequestsMerged(
+                option=option + "-merge-requests-merged", parent=self,
+                name="Merged requests on {0}".format(option)),
             ]
