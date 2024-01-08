@@ -275,7 +275,7 @@ class JiraVerified(Stats):
             self.parent.verified_status, self.user.login or self.user.email
             ))
         query = (
-            "status changed to '{0}' and status changed by {1} "
+            "status changed to '{0}' and status changed by '{1}' "
             "after {2} before {3}".format(
                 self.parent.verified_status,
                 self.user.login or self.user.email,
