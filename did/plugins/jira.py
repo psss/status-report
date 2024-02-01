@@ -29,9 +29,9 @@ token_name
     Name of the token to check for expiration in ``token_expiration``
     days. This has to match the name as seen in your Jira profile.
 
-verified_status
-    Name of the issue status which marks it verified.
-    Defaults to ``Release Pending``.
+transition_to
+    Name of the issue status we want to report transitions to.
+    Defaults to ``Release Pending`` (marking "verified" issues).
 
 Configuration example (GSS authentication)::
 
@@ -108,8 +108,8 @@ AUTH_TYPES = ["gss", "basic", "token"]
 # Enable ssl verify
 SSL_VERIFY = True
 
-# State marking verified issues
-DEFAULT_VERIFIED_STATUS = "Release Pending"
+# State we are interested in
+DEFAULT_TRANSITION_TO = "Release Pending"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #  Issue Investigator
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -267,17 +267,17 @@ class JiraResolved(Stats):
         self.stats = Issue.search(query, stats=self)
 
 
-class JiraVerified(Stats):
-    """ Verified issues """
+class JiraTransition(Stats):
+    """ Issues transitioned to specified state """
 
     def fetch(self):
-        log.info("Searching for issues transitioned to {0} by {1}".format(
-            self.parent.verified_status, self.user.login or self.user.email
+        log.info("Searching for issues transitioned to '{0}' by '{1}'".format(
+            self.parent.transition_to, self.user.login or self.user.email
             ))
         query = (
             "status changed to '{0}' and status changed by '{1}' "
             "after {2} before {3}".format(
-                self.parent.verified_status,
+                self.parent.transition_to,
                 self.user.login or self.user.email,
                 self.options.since,
                 self.options.until))
@@ -396,8 +396,8 @@ class JiraStats(StatsGroup):
         # Check for custom prefix
         self.prefix = config["prefix"] if "prefix" in config else None
 
-        # State marking Verified jira
-        self.verified_status = config.get("verified_status", DEFAULT_VERIFIED_STATUS)
+        # State transition to count
+        self.transition_to = config.get("transition_to", DEFAULT_TRANSITION_TO)
 
         # Create the list of stats
         self.stats = [
@@ -410,9 +410,9 @@ class JiraStats(StatsGroup):
             JiraResolved(
                 option=option + "-resolved", parent=self,
                 name="Issues resolved in {0}".format(option)),
-            JiraVerified(
-                option=option + "-verified", parent=self,
-                name="Issues verified in {0}".format(option)),
+            JiraTransition(
+                option=option + "-transitioned", parent=self,
+                name="Issues transitioned in {0}".format(option)),
             ]
 
     @property
