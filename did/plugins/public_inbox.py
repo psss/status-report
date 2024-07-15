@@ -29,17 +29,17 @@ class Message(object):
     def __init__(self, msg: mailbox.mboxMessage) -> None:
         self.msg = msg
 
-    def __msg_id(self, keyid: str) -> str:
+    def __msg_id(self, keyid: str) -> typing.Optional[str]:
         msgid = self.msg[keyid]
         if msgid is None:
             return None
 
         return msgid.lstrip("<").rstrip(">")
 
-    def id(self) -> str:
+    def id(self) -> typing.Optional[str]:
         return self.__msg_id("Message-Id")
 
-    def parent_id(self) -> str:
+    def parent_id(self) -> typing.Optional[str]:
         return self.__msg_id("In-Reply-To")
 
     def subject(self) -> str:
@@ -129,7 +129,7 @@ class PublicInbox(object):
 
         return msgs
 
-    def __fetch_thread_root(self, msg: Message) -> Message:
+    def __fetch_thread_root(self, msg: Message) -> typing.Optional[Message]:
         msg_id = msg.id()
         url = self.__get_url("/all/%s/t.mbox.gz" % msg_id)
 
@@ -141,7 +141,7 @@ class PublicInbox(object):
                 log.debug("Found message %s thread root: %s." % (msg_id, msg.id()))
                 return msg
 
-    def __get_thread_root(self, msg: Message) -> Message:
+    def __get_thread_root(self, msg: Message) -> typing.Optional[Message]:
         log.debug("Looking for thread root of message %s" % msg.id())
         if msg.is_thread_root():
             log.debug("Message is thread root already. Returning.")
