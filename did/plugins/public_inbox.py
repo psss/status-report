@@ -143,6 +143,7 @@ class PublicInbox(object):
                 return msg
 
         log.warn("Couldn't find message root")
+        return None
 
     def __get_thread_root(self, msg: Message) -> typing.Optional[Message]:
         log.debug("Looking for thread root of message %s" % msg.id())
